@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#10b981">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>บันทึกรายรับรายจ่าย</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <style>
+    :root { --primary: #10b981; --danger: #ef4444; --bg: #f3f4f6; --card: #ffffff; --text: #1f2937; }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { margin: 0; background: var(--bg); color: var(--text); padding-bottom: 30px; }
+    .header { background: var(--primary); color: white; padding: 24px 20px 32px; border-radius: 0 0 24px 24px; box-shadow: 0 4px 12px rgba(16,185,129,0.2); }
+    .header-title { font-size: 14px; opacity: 0.9; margin-bottom: 4px; }
+    .balance { font-size: 34px; font-weight: 700; letter-spacing: -0.5px; }
+    .container { padding: 0 16px; margin-top: -18px; }
+    .card { background: var(--card); border-radius: 16px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px; }
+    .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .type-btn { padding: 10px; border: 2px solid #e5e7eb; border-radius: 10px; background: white; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; }
+    .type-btn.active.income { border-color: var(--primary); background: #ecfdf5; color: var(--primary); }
+    .type-btn.active.expense { border-color: var(--danger); background: #fef2f2; color: var(--danger); }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-size: 13px; color: #6b7280; margin-bottom: 4px; }
+    input { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 16px; outline: none; }
+    input:focus { border-color: var(--primary); }
+    .submit-btn { width: 100%; padding: 14px; border: none; border-radius: 12px; background: var(--primary); color: white; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 4px; }
+    .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .list-header { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .tx-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
+    .tx-item:last-child { border-bottom: none; }
+    .tx-info { display: flex; flex-direction: column; }
+    .tx-name { font-weight: 500; font-size: 15px; }
+    .tx-date { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+    .tx-right { text-align: right; }
+    .tx-amount { font-weight: 600; font-size: 15px; }
+    .tx-amount.income { color: var(--primary); }
+    .tx-amount.expense { color: var(--danger); }
+    .tx-bal { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+    .loading { text-align: center; color: #6b7280; padding: 20px 0; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-title">ยอดเงินคงเหลือปัจจุบัน</div>
+    <div class="balance" id="totalBalance">฿0.00</div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <div class="type-toggle">
+        <button type="button" class="type-btn active expense" id="btnExpense" onclick="setType('รายจ่าย')">- รายจ่าย</button>
+        <button type="button" class="type-btn income" id="btnIncome" onclick="setType('รายรับ')">+ รายรับ</button>
+      </div>
+      <form id="txForm">
+        <div class="form-group">
+          <label>วันที่</label>
+          <input type="date" id="dateInput" required>
+        </div>
+        <div class="form-group">
+          <label>รายการ</label>
+          <input type="text" id="itemInput" placeholder="เช่น ค่าอาหาร, เงินเดือน" required>
+        </div>
+        <div class="form-group">
+          <label>จำนวนเงิน (บาท)</label>
+          <input type="number" id="amountInput" step="0.01" min="0.01" inputmode="decimal" placeholder="0.00" required>
+        </div>
+        <button type="submit" class="submit-btn" id="submitBtn">บันทึกรายการ</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="list-header">
+        <span>รายการล่าสุด</span>
+        <span style="font-size:12px; color:#10b981; cursor:pointer;" onclick="loadData()">↻ รีเฟรช</span>
+      </div>
+      <div id="txList"><div class="loading">กำลังโหลดข้อมูล...</div></div>
+    </div>
+  </div>
+
+  <script>
+    // วาง Web App URL จาก Google Apps Script ตรงนี้
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyQ7ag75Fj1IuorF8E4RPr3kc4nhmvLTcIsNMzHYVBP-Ltad1TSJfaPibjJge9gExErBg/exec';
+
+    let currentType = 'รายจ่าย';
+    document.getElementById('dateInput').valueAsDate = new Date();
+
+    function setType(type) {
+      currentType = type;
+      document.getElementById('btnExpense').classList.toggle('active', type === 'รายจ่าย');
+      document.getElementById('btnIncome').classList.toggle('active', type === 'รายรับ');
+    }
+
+    function formatMoney(num) {
+      return '฿' + Number(num).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    async function loadData() {
+      const listEl = document.getElementById('txList');
+      listEl.innerHTML = '<div class="loading">กำลังอัปเดตข้อมูล...</div>';
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        document.getElementById('totalBalance').textContent = formatMoney(data.balance);
+        
+        if (!data.records || data.records.length === 0) {
+          listEl.innerHTML = '<div class="loading">ยังไม่มีรายการบันทึก</div>';
+          return;
+        }
+
+        listEl.innerHTML = data.records.map(r => {
+          const isInc = r.type === 'รายรับ';
+          return `
+            <div class="tx-item">
+              <div class="tx-info">
+                <span class="tx-name">${r.item}</span>
+                <span class="tx-date">${r.date} • ${r.type}</span>
+              </div>
+              <div class="tx-right">
+                <div class="tx-amount ${isInc ? 'income' : 'expense'}">${isInc ? '+' : '-'}${formatMoney(r.amount)}</div>
+                <div class="tx-bal">คงเหลือ ${formatMoney(r.balance)}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        listEl.innerHTML = '<div class="loading" style="color:#ef4444;">โหลดข้อมูลไม่สำเร็จ ตรวจสอบ URL</div>';
+      }
+    }
+
+    document.getElementById('txForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = 'กำลังบันทึก...';
+
+      const payload = {
+        date: document.getElementById('dateInput').value,
+        type: currentType,
+        item: document.getElementById('itemInput').value.trim(),
+        amount: parseFloat(document.getElementById('amountInput').value)
+      };
+
+      try {
+        await fetch(API_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        document.getElementById('itemInput').value = '';
+        document.getElementById('amountInput').value = '';
+        setTimeout(loadData, 1200); // รอ Google Sheets คำนวณสูตรสักครู่แล้วโหลดใหม่
+      } catch (err) {
+        alert('เกิดข้อผิดพลาดในการบันทึก');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'บันทึกรายการ';
+      }
+    });
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
