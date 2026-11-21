@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#10b981">
+  <meta name="theme-color" content="#16a34a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="นับตัง">
@@ -12,23 +12,23 @@
   <link rel="icon" type="image/jpeg" href="icon.jpg">
   <link rel="apple-touch-icon" href="icon.jpg">
   <style>
-    :root { --primary: #10b981; --danger: #ef4444; --bg: #f3f4f6; --card: #ffffff; --text: #1f2937; }
+    :root { --primary: #16a34a; --primary-dark: #15803d; --danger: #ef4444; --bg: #f0fdf4; --card: #ffffff; --text: #1f2937; }
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { margin: 0; background: var(--bg); color: var(--text); padding-bottom: 30px; }
-    .header { background: var(--primary); color: white; padding: 24px 20px 32px; border-radius: 0 0 24px 24px; box-shadow: 0 4px 12px rgba(16,185,129,0.2); }
-    .header-title { font-size: 14px; opacity: 0.9; margin-bottom: 4px; }
-    .balance { font-size: 34px; font-weight: 700; letter-spacing: -0.5px; }
-    .container { padding: 0 16px; margin-top: -18px; }
-    .card { background: var(--card); border-radius: 16px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px; }
-    .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
-    .type-btn { padding: 10px; border: 2px solid #e5e7eb; border-radius: 10px; background: white; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; }
-    .type-btn.active.income { border-color: var(--primary); background: #ecfdf5; color: var(--primary); }
-    .type-btn.active.expense { border-color: var(--danger); background: #fef2f2; color: var(--danger); }
+    .header { background: linear-gradient(135deg, #22c55e, #15803d); color: white; padding: 28px 20px 36px; border-radius: 0 0 28px 28px; box-shadow: 0 4px 14px rgba(22,163,74,0.25); }
+    .header-title { font-size: 14px; opacity: 0.95; margin-bottom: 4px; }
+    .balance { font-size: 36px; font-weight: 700; letter-spacing: -0.5px; }
+    .container { padding: 0 16px; margin-top: -20px; }
+    .card { background: var(--card); border-radius: 18px; padding: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px; }
+    .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .type-btn { padding: 11px; border: 2px solid #e5e7eb; border-radius: 12px; background: white; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; }
+    .type-btn.active.income { border-color: var(--primary); background: #dcfce7; color: var(--primary-dark); }
+    .type-btn.active.expense { border-color: var(--danger); background: #fee2e2; color: var(--danger); }
     .form-group { margin-bottom: 12px; }
-    label { display: block; font-size: 13px; color: #6b7280; margin-bottom: 4px; }
-    input { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 16px; outline: none; }
-    input:focus { border-color: var(--primary); }
-    .submit-btn { width: 100%; padding: 14px; border: none; border-radius: 12px; background: var(--primary); color: white; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 4px; }
+    label { display: block; font-size: 13px; color: #4b5563; margin-bottom: 4px; font-weight: 500; }
+    input { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 12px; font-size: 16px; outline: none; background: #f9fafb; }
+    input:focus { border-color: var(--primary); background: #ffffff; }
+    .submit-btn { width: 100%; padding: 14px; border: none; border-radius: 12px; background: var(--primary); color: white; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 6px; box-shadow: 0 2px 8px rgba(22,163,74,0.3); }
     .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
     .list-header { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
     .tx-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
@@ -77,15 +77,14 @@
     <div class="card">
       <div class="list-header">
         <span>รายการล่าสุด</span>
-        <span style="font-size:12px; color:#10b981; cursor:pointer;" onclick="loadData()">↻ รีเฟรช</span>
+        <span style="font-size:13px; color:#16a34a; font-weight:600; cursor:pointer;" onclick="loadData()">↻ รีเฟรช</span>
       </div>
       <div id="txList"><div class="loading">กำลังโหลดข้อมูล...</div></div>
     </div>
   </div>
 
   <script>
-    // วาง Web App URL จาก Google Apps Script ตรงนี้
-    const API_URL = 'YOUR_APPS_SCRIPT_WEB_APP_URL';
+    const API_URL = 'https://script.google.com/macros/s/AKfycby2EpjVYWplVN_OWZtjMLapbgc53eQi5VIxjKesXbJfn0JtjA6PCfTbQ-aU8WwNxSsZjQ/exec';
 
     let currentType = 'รายจ่าย';
     document.getElementById('dateInput').valueAsDate = new Date();
@@ -104,7 +103,7 @@
       const listEl = document.getElementById('txList');
       listEl.innerHTML = '<div class="loading">กำลังอัปเดตข้อมูล...</div>';
       try {
-        const res = await fetch(API_URL);
+        const res = await fetch(API_URL, { redirect: 'follow' });
         const data = await res.json();
         document.getElementById('totalBalance').textContent = formatMoney(data.balance);
         
@@ -129,7 +128,7 @@
           `;
         }).join('');
       } catch (err) {
-        listEl.innerHTML = '<div class="loading" style="color:#ef4444;">โหลดข้อมูลไม่สำเร็จ ตรวจสอบ URL</div>';
+        listEl.innerHTML = '<div class="loading" style="color:#ef4444;">โหลดข้อมูลไม่สำเร็จ (ตรวจสอบสิทธิ์ Anyone หรือชื่อชีต Transactions)</div>';
       }
     }
 
@@ -150,12 +149,12 @@
         await fetch(API_URL, {
           method: 'POST',
           mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
         });
         document.getElementById('itemInput').value = '';
         document.getElementById('amountInput').value = '';
-        setTimeout(loadData, 1200);
+        setTimeout(loadData, 1500);
       } catch (err) {
         alert('เกิดข้อผิดพลาดในการบันทึก');
       } finally {
