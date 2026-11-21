@@ -107,4 +107,412 @@
     .tx-meta { min-width: 0; }
     .tx-title { font-weight: 500; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .tx-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .tx-right { text
+    .tx-right { text-align: right; flex-shrink: 0; margin-left: 8px; }
+    .tx-amt { font-weight: 600; font-size: 15px; }
+    .tx-amt.income { color: var(--income); }
+    .tx-amt.expense { color: var(--expense); }
+    .tx-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
+    .act-btn { border: 1px solid var(--border); background: var(--bg); color: var(--text); padding: 3px 9px; border-radius: 8px; font-size: 11px; cursor: pointer; }
+    .act-del { color: var(--expense); background: var(--expense-bg); border-color: transparent; }
+
+    .bottom-nav {
+      position: fixed; bottom: 0; width: 100%; max-width: 480px; background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px); border-top: 1px solid var(--border);
+      display: grid; grid-template-columns: repeat(3, 1fr); padding: 10px 0 14px; z-index: 50;
+    }
+    .nav-btn {
+      background: none; border: none; display: flex; flex-direction: column; align-items: center;
+      gap: 4px; color: var(--muted); font-size: 11px; font-weight: 400; cursor: pointer;
+    }
+    .nav-btn.active { color: var(--text); font-weight: 600; }
+    .nav-dot { width: 4px; height: 4px; border-radius: 50%; background: transparent; margin-top: 1px; }
+    .nav-btn.active .nav-dot { background: var(--accent); }
+
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(44, 40, 37, 0.4); display: none;
+      align-items: center; justify-content: center; padding: 20px; z-index: 100;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-box { background: var(--card); width: 100%; max-width: 400px; border-radius: 24px; padding: 22px; border: 1px solid var(--border); }
+    .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+    .btn-cancel { padding: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 14px; font-weight: 500; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- หน้า 1: บันทึกรายการ -->
+  <div id="pageRecord" class="page active">
+    <div class="top-bar">
+      <div class="brand">นับตัง</div>
+      <a id="topSheetLink" href="#" target="_blank" class="sheet-shortcut">เปิดชีต ↗</a>
+    </div>
+
+    <div class="content">
+      <div class="balance-card">
+        <div class="balance-title">ยอดเงินคงเหลือ</div>
+        <div class="balance-val" id="totalBalance">฿0.00</div>
+        <div class="summary-row">
+          <div class="sum-box">
+            <div class="sum-label">รายรับรวม</div>
+            <div class="sum-num" id="totalIncome" style="color:var(--income);">+฿0.00</div>
+          </div>
+          <div class="sum-box">
+            <div class="sum-label">รายจ่ายรวม</div>
+            <div class="sum-num" id="totalExpense" style="color:var(--expense);">-฿0.00</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="type-toggle">
+          <button type="button" class="type-btn active expense" id="btnExpense" onclick="setType('รายจ่าย')">รายจ่าย</button>
+          <button type="button" class="type-btn income" id="btnIncome" onclick="setType('รายรับ')">รายรับ</button>
+        </div>
+        <form id="txForm">
+          <div class="form-group">
+            <label>วันที่</label>
+            <input type="date" id="dateInput" required>
+          </div>
+          <div class="form-group">
+            <label>รายการ</label>
+            <input type="text" id="itemInput" placeholder="เช่น ค่าอาหาร, ค่ารถ, เงินเดือน" required>
+          </div>
+          <div class="form-group">
+            <label>จำนวนเงิน (บาท)</label>
+            <input type="number" id="amountInput" step="0.01" min="0.01" inputmode="decimal" placeholder="0.00" required>
+          </div>
+          <button type="submit" class="btn-primary" id="submitBtn">บันทึกรายการ</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- หน้า 2: ประวัติรายการ -->
+  <div id="pageHistory" class="page">
+    <div class="page-header">
+      <h2 class="page-title">ประวัติรายการ</h2>
+      <button onclick="loadData()" class="sheet-shortcut">↻ รีเฟรช</button>
+    </div>
+    <div class="content">
+      <div class="form-group">
+        <input type="text" id="searchInput" placeholder="ค้นหาชื่อรายการ..." oninput="renderHistory()">
+      </div>
+      <div class="filter-bar">
+        <button class="pill active" onclick="setFilter('all', this)">ทั้งหมด</button>
+        <button class="pill" onclick="setFilter('รายรับ', this)">รายรับ</button>
+        <button class="pill" onclick="setFilter('รายจ่าย', this)">รายจ่าย</button>
+      </div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <!-- หน้า 3: ตั้งค่า -->
+  <div id="pageSettings" class="page">
+    <div class="page-header">
+      <h2 class="page-title">ตั้งค่า</h2>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="form-group">
+          <label>ลิงก์ไฟล์ Google Sheets</label>
+          <input type="url" id="sheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/...">
+        </div>
+        <div class="form-group">
+          <label>ลิงก์ Apps Script Web App URL</label>
+          <input type="url" id="apiUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+        </div>
+        <button type="button" class="btn-primary" onclick="saveSettings()">บันทึกการตั้งค่า</button>
+      </div>
+
+      <div class="card">
+        <label style="margin-bottom:8px;">จัดการไฟล์ข้อมูล</label>
+        <a id="settingsOpenSheetBtn" href="#" target="_blank" class="btn-outline">เปิดตาราง Google Sheets ↗</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- แถบเมนูด้านล่าง -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="navRecord" onclick="switchPage('Record')">
+      <span>บันทึก</span>
+      <span class="nav-dot"></span>
+    </button>
+    <button class="nav-btn" id="navHistory" onclick="switchPage('History')">
+      <span>ประวัติ</span>
+      <span class="nav-dot"></span>
+    </button>
+    <button class="nav-btn" id="navSettings" onclick="switchPage('Settings')">
+      <span>ตั้งค่า</span>
+      <span class="nav-dot"></span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- หน้าต่างแก้ไขรายการ -->
+<div class="modal-backdrop" id="editModal">
+  <div class="modal-box">
+    <h3 style="margin:0 0 14px; font-size:17px; font-weight:600;">แก้ไขรายการ</h3>
+    <input type="hidden" id="editRowIndex">
+    <div class="form-group">
+      <label>ประเภท</label>
+      <select id="editType">
+        <option value="รายจ่าย">รายจ่าย</option>
+        <option value="รายรับ">รายรับ</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>วันที่</label>
+      <input type="date" id="editDate" required>
+    </div>
+    <div class="form-group">
+      <label>รายการ</label>
+      <input type="text" id="editItem" required>
+    </div>
+    <div class="form-group">
+      <label>จำนวนเงิน (บาท)</label>
+      <input type="number" id="editAmount" step="0.01" min="0.01" required>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" onclick="closeEditModal()">ยกเลิก</button>
+      <button type="button" class="btn-primary" style="margin-top:0;" id="saveEditBtn" onclick="submitEdit()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbz7GzoucUqxtVsqlAEg0ydduJ3fOip-rZwBd4-2bTEeOE2YRdSHPJfxNojL4ecNJe1u9w/exec';
+  const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1rrhwKB9QoYmjJS1tmBJMkijUp0rhRNvI6VfDTRd9X4c/edit';
+
+  let currentType = 'รายจ่าย';
+  let currentFilter = 'all';
+  let allRecords = [];
+
+  document.getElementById('dateInput').valueAsDate = new Date();
+
+  function getApiUrl() {
+    return localStorage.getItem('nubtang_api_url') || DEFAULT_API_URL;
+  }
+  function getSheetUrl() {
+    return localStorage.getItem('nubtang_sheet_url') || DEFAULT_SHEET_URL;
+  }
+
+  function initSettings() {
+    const sheetUrl = getSheetUrl();
+    const apiUrl = getApiUrl();
+    document.getElementById('sheetUrlInput').value = sheetUrl;
+    document.getElementById('apiUrlInput').value = apiUrl;
+    document.getElementById('topSheetLink').href = sheetUrl;
+    document.getElementById('settingsOpenSheetBtn').href = sheetUrl;
+  }
+
+  function saveSettings() {
+    const sheetUrl = document.getElementById('sheetUrlInput').value.trim();
+    const apiUrl = document.getElementById('apiUrlInput').value.trim();
+    if (sheetUrl) localStorage.setItem('nubtang_sheet_url', sheetUrl);
+    else localStorage.removeItem('nubtang_sheet_url');
+    if (apiUrl) localStorage.setItem('nubtang_api_url', apiUrl);
+    else localStorage.removeItem('nubtang_api_url');
+    initSettings();
+    alert('บันทึกการตั้งค่าเรียบร้อยแล้ว');
+    loadData();
+  }
+
+  function switchPage(pageName) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('page' + pageName).classList.add('active');
+    document.getElementById('nav' + pageName).classList.add('active');
+    if (pageName === 'History') renderHistory();
+  }
+
+  function setType(type) {
+    currentType = type;
+    document.getElementById('btnExpense').classList.toggle('active', type === 'รายจ่าย');
+    document.getElementById('btnIncome').classList.toggle('active', type === 'รายรับ');
+  }
+
+  function setFilter(filter, btnEl) {
+    currentFilter = filter;
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    btnEl.classList.add('active');
+    renderHistory();
+  }
+
+  function formatMoney(num) {
+    return '฿' + Number(num).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  async function loadData() {
+    const listEl = document.getElementById('historyList');
+    listEl.innerHTML = '<div style="text-align:center; color:var(--muted); padding:30px 0; font-size:14px;">กำลังโหลดข้อมูล...</div>';
+    try {
+      // เติม ?t=... เพื่อป้องกันเบราว์เซอร์ดึงข้อมูลเก่าที่ค้างอยู่ในแคช
+      const fetchUrl = getApiUrl() + '?t=' + new Date().getTime();
+      const res = await fetch(fetchUrl, { redirect: 'follow' });
+      const data = await res.json();
+      
+      allRecords = (data.records || []).filter(r => String(r.item).trim() !== '' && Number(r.amount) > 0);
+      
+      let sumInc = 0, sumExp = 0;
+      allRecords.forEach(r => {
+        if (r.type === 'รายรับ') sumInc += Number(r.amount);
+        else sumExp += Number(r.amount);
+      });
+
+      const currentBalance = allRecords.length > 0 ? allRecords[0].balance : (sumInc - sumExp);
+      document.getElementById('totalBalance').textContent = formatMoney(currentBalance);
+      document.getElementById('totalIncome').textContent = '+' + formatMoney(sumInc);
+      document.getElementById('totalExpense').textContent = '-' + formatMoney(sumExp);
+
+      renderHistory();
+    } catch (err) {
+      listEl.innerHTML = '<div style="text-align:center; color:var(--expense); padding:30px 0; font-size:14px;">โหลดข้อมูลไม่สำเร็จ ตรวจสอบการเชื่อมต่อ</div>';
+    }
+  }
+
+  function renderHistory() {
+    const listEl = document.getElementById('historyList');
+    const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+
+    const filtered = allRecords.filter(r => {
+      const matchType = currentFilter === 'all' || r.type === currentFilter;
+      const matchText = String(r.item).toLowerCase().includes(keyword);
+      return matchType && matchText;
+    });
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center; color:var(--muted); padding:30px 0; font-size:14px;">ยังไม่มีรายการบันทึก</div>';
+      return;
+    }
+
+    listEl.innerHTML = filtered.map(r => {
+      const isInc = r.type === 'รายรับ';
+      const safeItem = String(r.item).replace(/'/g, "\\'");
+      return `
+        <div class="tx-item">
+          <div class="tx-left">
+            <div class="tx-badge ${isInc ? 'income' : 'expense'}">${isInc ? '+' : '-'}</div>
+            <div class="tx-meta">
+              <div class="tx-title">${r.item}</div>
+              <div class="tx-sub">${r.date} • คงเหลือ ${formatMoney(r.balance)}</div>
+            </div>
+          </div>
+          <div class="tx-right">
+            <div class="tx-amt ${isInc ? 'income' : 'expense'}">${isInc ? '+' : '-'}${formatMoney(r.amount)}</div>
+            <div class="tx-actions">
+              <button class="act-btn" onclick="openEditModal(${r.rowIndex}, '${r.date}', '${r.type}', '${safeItem}', ${r.amount})">แก้ไข</button>
+              <button class="act-btn act-del" onclick="deleteRecord(${r.rowIndex}, '${safeItem}')">ลบ</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  document.getElementById('txForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'กำลังบันทึก...';
+
+    const payload = {
+      action: 'add',
+      date: document.getElementById('dateInput').value,
+      type: currentType,
+      item: document.getElementById('itemInput').value.trim(),
+      amount: parseFloat(document.getElementById('amountInput').value)
+    };
+
+    try {
+      await fetch(getApiUrl(), {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      document.getElementById('itemInput').value = '';
+      document.getElementById('amountInput').value = '';
+      setTimeout(() => {
+        loadData();
+        switchPage('History');
+      }, 1400);
+    } catch (err) {
+      alert('เกิดข้อผิดพลาดในการบันทึก');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'บันทึกรายการ';
+    }
+  });
+
+  function openEditModal(rowIndex, date, type, item, amount) {
+    document.getElementById('editRowIndex').value = rowIndex;
+    document.getElementById('editDate').value = date;
+    document.getElementById('editType').value = type;
+    document.getElementById('editItem').value = item;
+    document.getElementById('editAmount').value = amount;
+    document.getElementById('editModal').classList.add('open');
+  }
+
+  function closeEditModal() {
+    document.getElementById('editModal').classList.remove('open');
+  }
+
+  async function submitEdit() {
+    const btn = document.getElementById('saveEditBtn');
+    btn.disabled = true;
+    btn.textContent = 'กำลังบันทึก...';
+
+    const payload = {
+      action: 'edit',
+      rowIndex: Number(document.getElementById('editRowIndex').value),
+      date: document.getElementById('editDate').value,
+      type: document.getElementById('editType').value,
+      item: document.getElementById('editItem').value.trim(),
+      amount: parseFloat(document.getElementById('editAmount').value)
+    };
+
+    try {
+      await fetch(getApiUrl(), {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      closeEditModal();
+      setTimeout(loadData, 1400);
+    } catch (err) {
+      alert('แก้ไขไม่สำเร็จ');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'บันทึก';
+    }
+  }
+
+  async function deleteRecord(rowIndex, itemName) {
+    if (!confirm(`ต้องการลบรายการ "${itemName}" ใช่หรือไม่?`)) return;
+
+    try {
+      await fetch(getApiUrl(), {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'delete', rowIndex: Number(rowIndex) })
+      });
+      setTimeout(loadData, 1400);
+    } catch (err) {
+      alert('ลบรายการไม่สำเร็จ');
+    }
+  }
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+
+  initSettings();
+  loadData();
+</script>
+</body>
+</html>
