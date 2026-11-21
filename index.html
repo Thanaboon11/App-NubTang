@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#16a34a">
+  <meta name="theme-color" content="#0d6e43">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="นับตัง">
@@ -11,75 +11,147 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { --primary: #16a34a; --primary-dark: #15803d; --danger: #ef4444; --bg: #f0fdf4; --card: #ffffff; --text: #1f2937; }
-    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { margin: 0; background: var(--bg); color: var(--text); padding-bottom: 30px; }
-    .header { background: linear-gradient(135deg, #22c55e, #15803d); color: white; padding: 28px 20px 36px; border-radius: 0 0 28px 28px; box-shadow: 0 4px 14px rgba(22,163,74,0.25); }
-    .header-title { font-size: 14px; opacity: 0.95; margin-bottom: 4px; }
-    .balance { font-size: 36px; font-weight: 700; letter-spacing: -0.5px; }
-    .container { padding: 0 16px; margin-top: -20px; }
-    .card { background: var(--card); border-radius: 18px; padding: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px; }
-    .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-    .type-btn { padding: 11px; border: 2px solid #e5e7eb; border-radius: 12px; background: white; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; }
-    .type-btn.active.income { border-color: var(--primary); background: #dcfce7; color: var(--primary-dark); }
-    .type-btn.active.expense { border-color: var(--danger); background: #fee2e2; color: var(--danger); }
-    .form-group { margin-bottom: 12px; }
-    label { display: block; font-size: 13px; color: #4b5563; margin-bottom: 4px; font-weight: 500; }
-    input { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 12px; font-size: 16px; outline: none; background: #f9fafb; }
-    input:focus { border-color: var(--primary); background: #ffffff; }
-    .submit-btn { width: 100%; padding: 14px; border: none; border-radius: 12px; background: var(--primary); color: white; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 6px; box-shadow: 0 2px 8px rgba(22,163,74,0.3); }
+    :root {
+      --primary: #108a54;
+      --primary-light: #e6f6ee;
+      --danger: #e11d48;
+      --danger-light: #ffe4e6;
+      --bg: #f4f7f6;
+      --card: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+    }
+    * { box-sizing: border-box; font-family: 'Prompt', -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; background: var(--bg); color: var(--text-main); display: flex; justify-content: center; min-height: 100vh; }
+    .app-shell { width: 100%; max-width: 480px; background: var(--bg); padding-bottom: 40px; }
+    
+    /* Header */
+    .header {
+      background: linear-gradient(145deg, #0b6b3a 0%, #159957 100%);
+      color: white;
+      padding: 32px 24px 48px;
+      border-radius: 0 0 32px 32px;
+      box-shadow: 0 10px 25px -5px rgba(11, 107, 58, 0.25);
+    }
+    .app-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.16); padding: 4px 12px; border-radius: 20px;
+      font-size: 13px; font-weight: 500; margin-bottom: 12px; backdrop-filter: blur(4px);
+    }
+    .balance-label { font-size: 13px; opacity: 0.85; font-weight: 400; }
+    .balance { font-size: 38px; font-weight: 700; letter-spacing: -0.5px; margin-top: 2px; }
+
+    /* Container & Cards */
+    .container { padding: 0 18px; margin-top: -28px; }
+    .card {
+      background: var(--card); border-radius: 22px; padding: 20px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04); margin-bottom: 18px;
+      border: 1px solid rgba(255,255,255,0.8);
+    }
+
+    /* Toggle Buttons */
+    .type-toggle {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+      background: #f1f5f9; padding: 5px; border-radius: 14px; margin-bottom: 16px;
+    }
+    .type-btn {
+      padding: 10px; border: none; border-radius: 10px; background: transparent;
+      font-weight: 600; font-size: 14px; color: var(--text-muted); cursor: pointer; transition: all 0.2s ease;
+    }
+    .type-btn.active.expense { background: white; color: var(--danger); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .type-btn.active.income { background: white; color: var(--primary); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+
+    /* Inputs */
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
+    input {
+      width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 12px;
+      font-size: 15px; outline: none; background: #f8fafc; color: var(--text-main); transition: 0.2s;
+    }
+    input:focus { border-color: var(--primary); background: #ffffff; box-shadow: 0 0 0 3px rgba(16, 138, 84, 0.1); }
+    
+    .submit-btn {
+      width: 100%; padding: 14px; border: none; border-radius: 14px;
+      background: linear-gradient(135deg, #108a54, #0b6b3a); color: white;
+      font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 6px;
+      box-shadow: 0 4px 12px rgba(16, 138, 84, 0.25); transition: transform 0.1s;
+    }
+    .submit-btn:active { transform: scale(0.98); }
     .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-    .list-header { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-    .tx-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
-    .tx-item:last-child { border-bottom: none; }
+
+    /* Transaction List */
+    .list-header { font-size: 15px; font-weight: 600; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+    .refresh-btn {
+      font-size: 12px; color: var(--primary); background: var(--primary-light);
+      padding: 5px 12px; border-radius: 20px; font-weight: 600; cursor: pointer;
+    }
+    .tx-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0; border-bottom: 1px solid #f1f5f9;
+    }
+    .tx-item:last-child { border-bottom: none; padding-bottom: 4px; }
+    .tx-left { display: flex; align-items: center; gap: 12px; }
+    .tx-icon {
+      width: 40px; height: 40px; border-radius: 12px; display: flex;
+      align-items: center; justify-content: center; font-weight: 700; font-size: 16px; flex-shrink: 0;
+    }
+    .tx-icon.income { background: var(--primary-light); color: var(--primary); }
+    .tx-icon.expense { background: var(--danger-light); color: var(--danger); }
     .tx-info { display: flex; flex-direction: column; }
-    .tx-name { font-weight: 500; font-size: 15px; }
-    .tx-date { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+    .tx-name { font-weight: 500; font-size: 15px; color: var(--text-main); }
+    .tx-date { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
     .tx-right { text-align: right; }
     .tx-amount { font-weight: 600; font-size: 15px; }
     .tx-amount.income { color: var(--primary); }
     .tx-amount.expense { color: var(--danger); }
-    .tx-bal { font-size: 11px; color: #9ca3af; margin-top: 2px; }
-    .loading { text-align: center; color: #6b7280; padding: 20px 0; font-size: 14px; }
+    .tx-bal { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+    .empty-state { text-align: center; color: var(--text-muted); padding: 28px 0; font-size: 14px; }
   </style>
 </head>
 <body>
 
-  <div class="header">
-    <div class="header-title">นับตัง • ยอดเงินคงเหลือปัจจุบัน</div>
-    <div class="balance" id="totalBalance">฿0.00</div>
-  </div>
-
-  <div class="container">
-    <div class="card">
-      <div class="type-toggle">
-        <button type="button" class="type-btn active expense" id="btnExpense" onclick="setType('รายจ่าย')">- รายจ่าย</button>
-        <button type="button" class="type-btn income" id="btnIncome" onclick="setType('รายรับ')">+ รายรับ</button>
-      </div>
-      <form id="txForm">
-        <div class="form-group">
-          <label>วันที่</label>
-          <input type="date" id="dateInput" required>
-        </div>
-        <div class="form-group">
-          <label>รายการ</label>
-          <input type="text" id="itemInput" placeholder="เช่น ค่าอาหาร, เงินเดือน" required>
-        </div>
-        <div class="form-group">
-          <label>จำนวนเงิน (บาท)</label>
-          <input type="number" id="amountInput" step="0.01" min="0.01" inputmode="decimal" placeholder="0.00" required>
-        </div>
-        <button type="submit" class="submit-btn" id="submitBtn">บันทึกรายการ</button>
-      </form>
+  <div class="app-shell">
+    <div class="header">
+      <div class="app-badge">🐷 นับตัง</div>
+      <div class="balance-label">ยอดเงินคงเหลือปัจจุบัน</div>
+      <div class="balance" id="totalBalance">฿0.00</div>
     </div>
 
-    <div class="card">
-      <div class="list-header">
-        <span>รายการล่าสุด</span>
-        <span style="font-size:13px; color:#16a34a; font-weight:600; cursor:pointer;" onclick="loadData()">↻ รีเฟรช</span>
+    <div class="container">
+      <div class="card">
+        <div class="type-toggle">
+          <button type="button" class="type-btn active expense" id="btnExpense" onclick="setType('รายจ่าย')">รายจ่าย</button>
+          <button type="button" class="type-btn income" id="btnIncome" onclick="setType('รายรับ')">รายรับ</button>
+        </div>
+        <form id="txForm">
+          <div class="form-group">
+            <label>วันที่ทำรายการ</label>
+            <input type="date" id="dateInput" required>
+          </div>
+          <div class="form-group">
+            <label>ชื่อรายการ</label>
+            <input type="text" id="itemInput" placeholder="เช่น ค่าอาหาร, ค่ารถ, เงินเดือน" required>
+          </div>
+          <div class="form-group">
+            <label>จำนวนเงิน (บาท)</label>
+            <input type="number" id="amountInput" step="0.01" min="0.01" inputmode="decimal" placeholder="0.00" required>
+          </div>
+          <button type="submit" class="submit-btn" id="submitBtn">บันทึกรายการ</button>
+        </form>
       </div>
-      <div id="txList"><div class="loading">กำลังโหลดข้อมูล...</div></div>
+
+      <div class="card">
+        <div class="list-header">
+          <span>ประวัติรายการล่าสุด</span>
+          <span class="refresh-btn" onclick="loadData()">↻ รีเฟรช</span>
+        </div>
+        <div id="txList"><div class="empty-state">กำลังโหลดข้อมูล...</div></div>
+      </div>
     </div>
   </div>
 
@@ -101,14 +173,14 @@
 
     async function loadData() {
       const listEl = document.getElementById('txList');
-      listEl.innerHTML = '<div class="loading">กำลังอัปเดตข้อมูล...</div>';
+      listEl.innerHTML = '<div class="empty-state">กำลังอัปเดตข้อมูล...</div>';
       try {
         const res = await fetch(API_URL, { redirect: 'follow' });
         const data = await res.json();
         document.getElementById('totalBalance').textContent = formatMoney(data.balance);
         
         if (!data.records || data.records.length === 0) {
-          listEl.innerHTML = '<div class="loading">ยังไม่มีรายการบันทึก</div>';
+          listEl.innerHTML = '<div class="empty-state">ยังไม่มีรายการบันทึก เริ่มจดรายการแรกได้เลย!</div>';
           return;
         }
 
@@ -116,9 +188,12 @@
           const isInc = r.type === 'รายรับ';
           return `
             <div class="tx-item">
-              <div class="tx-info">
-                <span class="tx-name">${r.item}</span>
-                <span class="tx-date">${r.date} • ${r.type}</span>
+              <div class="tx-left">
+                <div class="tx-icon ${isInc ? 'income' : 'expense'}">${isInc ? '+' : '-'}</div>
+                <div class="tx-info">
+                  <span class="tx-name">${r.item || 'ไม่ระบุรายการ'}</span>
+                  <span class="tx-date">${r.date}</span>
+                </div>
               </div>
               <div class="tx-right">
                 <div class="tx-amount ${isInc ? 'income' : 'expense'}">${isInc ? '+' : '-'}${formatMoney(r.amount)}</div>
@@ -128,7 +203,7 @@
           `;
         }).join('');
       } catch (err) {
-        listEl.innerHTML = '<div class="loading" style="color:#ef4444;">โหลดข้อมูลไม่สำเร็จ (ตรวจสอบสิทธิ์ Anyone หรือชื่อชีต Transactions)</div>';
+        listEl.innerHTML = '<div class="empty-state" style="color:#e11d48;">โหลดข้อมูลไม่สำเร็จ กรุณากดรีเฟรชอีกครั้ง</div>';
       }
     }
 
