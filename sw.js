@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nubtang-v2';
+const CACHE_NAME = 'nubtang-v3';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
