@@ -32,9 +32,9 @@
     body { margin: 0; background: #edeae4; color: var(--text); display: flex; justify-content: center; min-height: 100vh; }
     .app-shell { width: 100%; max-width: 480px; background: var(--bg); min-height: 100vh; position: relative; padding-bottom: 86px; }
 
-    .page { display: none; animation: fadeIn 0.2s ease; }
+    .page { display: none; animation: fadeIn 0.16s ease; }
     .page.active { display: block; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
 
     .top-bar { padding: 26px 22px 12px; display: flex; justify-content: space-between; align-items: center; }
     .brand { font-size: 16px; font-weight: 600; color: var(--text); }
@@ -237,7 +237,7 @@
   <div id="pageHistory" class="page">
     <div class="page-header">
       <h2 class="page-title">ประวัติรายการ</h2>
-      <button onclick="loadData()" class="sheet-shortcut">↻ รีเฟรช</button>
+      <button onclick="loadData(true)" class="sheet-shortcut" id="refreshBtn">↻ รีเฟรช</button>
     </div>
     <div class="content">
       <div class="form-group" style="display:grid; grid-template-columns: 1.4fr 1fr; gap:8px;">
@@ -348,6 +348,7 @@
   const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbz7GzoucUqxtVsqlAEg0ydduJ3fOip-rZwBd4-2bTEeOE2YRdSHPJfxNojL4ecNJe1u9w/exec';
   const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1rrhwKB9QoYmjJS1tmBJMkijUp0rhRNvI6VfDTRd9X4c/edit';
   const DEFAULT_ACCOUNTS = ['เงินสด', 'กรุงไทย', 'กสิกรไทย', 'ไทยพาณิชย์', 'TrueMoney'];
+  const CACHE_RECORDS_KEY = 'nubtang_records_cache_v1';
 
   let currentType = 'รายจ่าย';
   let currentFilter = 'all';
@@ -435,6 +436,42 @@
     `).join('');
   }
 
+  function computeRunningBalances(recordsNewestFirst) {
+    // recordsNewestFirst เรียงจากใหม่ไปเก่า (row ใหญ่ -> row เล็ก)
+    // คำนวณยอดคงเหลือสะสมจากรายการเก่าสุด (ท้ายอาเรย์) มายังรายการใหม่สุด (หัวอาเรย์)
+    const chrono = recordsNewestFirst.slice().reverse();
+    let running = 0;
+    const withBalChrono = chrono.map(r => {
+      const amt = Number(r.amount) || 0;
+      if (r.type === 'รายรับ') running += amt;
+      else running -= amt;
+      return Object.assign({}, r, { computedBalance: running });
+    });
+    return withBalChrono.reverse();
+  }
+
+  function applyRecordsToUI(records) {
+    allRecords = computeRunningBalances(
+      (records || []).filter(r => String(r.item || '').trim() !== '' && Number(r.amount) > 0)
+    );
+
+    let sumInc = 0, sumExp = 0;
+    allRecords.forEach(r => {
+      const amt = Number(r.amount) || 0;
+      if (r.type === 'รายรับ') sumInc += amt;
+      else sumExp += amt;
+    });
+
+    const netBalance = sumInc - sumExp;
+    document.getElementById('totalBalance').textContent = formatMoney(netBalance);
+    document.getElementById('totalIncome').textContent = '+' + formatMoney(sumInc);
+    document.getElementById('totalExpense').textContent = '-' + formatMoney(sumExp);
+
+    renderAccountsUI();
+    renderAccountBalances();
+    renderHistory();
+  }
+
   function initSettings() {
     const sheetUrl = getSheetUrl();
     const apiUrl = getApiUrl();
@@ -454,7 +491,7 @@
     else localStorage.removeItem('nubtang_api_url');
     initSettings();
     alert('บันทึกการตั้งค่าเรียบร้อยแล้ว');
-    loadData();
+    loadData(true);
   }
 
   function switchPage(pageName) {
@@ -483,6 +520,19 @@
     return '฿' + (isNaN(safe) ? 0 : safe).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  function formatDateForInput(dStr) {
+    const s = String(dStr || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+    return '';
+  }
+
   function escapeHtml(str) {
     return String(str)
       .replace(/&/g, '&amp;')
@@ -508,9 +558,9 @@
     }
   }
 
-  async function loadData() {
+  async function loadData(showLoadingText = false) {
     const listEl = document.getElementById('historyList');
-    if (!allRecords.length) {
+    if (showLoadingText || !allRecords.length) {
       listEl.innerHTML = '<div style="text-align:center; color:var(--muted); padding:30px 0; font-size:14px;">กำลังโหลดข้อมูล...</div>';
     }
     try {
@@ -519,26 +569,13 @@
       const data = await res.json();
       if (data.status === 'error') throw new Error(data.message || 'API error');
 
-      const incoming = (data.records || []).filter(r => String(r.item || '').trim() !== '' && Number(r.amount) > 0);
-      allRecords = incoming;
-
-      let sumInc = 0, sumExp = 0;
-      allRecords.forEach(r => {
-        const amt = Number(r.amount) || 0;
-        if (r.type === 'รายรับ') sumInc += amt;
-        else sumExp += amt;
-      });
-
-      const netBalance = sumInc - sumExp;
-      document.getElementById('totalBalance').textContent = formatMoney(netBalance);
-      document.getElementById('totalIncome').textContent = '+' + formatMoney(sumInc);
-      document.getElementById('totalExpense').textContent = '-' + formatMoney(sumExp);
-
-      renderAccountsUI();
-      renderAccountBalances();
-      renderHistory();
+      const records = data.records || [];
+      localStorage.setItem(CACHE_RECORDS_KEY, JSON.stringify(records));
+      applyRecordsToUI(records);
     } catch (err) {
-      listEl.innerHTML = '<div style="text-align:center; color:var(--expense); padding:30px 0; font-size:14px;">โหลดข้อมูลไม่สำเร็จ กดรีเฟรชอีกครั้ง</div>';
+      if (!allRecords.length) {
+        listEl.innerHTML = '<div style="text-align:center; color:var(--expense); padding:30px 0; font-size:14px;">โหลดข้อมูลไม่สำเร็จ กดรีเฟรชอีกครั้ง</div>';
+      }
     }
   }
 
@@ -563,6 +600,8 @@
       const isInc = r.type === 'รายรับ';
       const acc = r.account || 'ทั่วไป';
       const amt = Number(r.amount) || 0;
+      const cleanDate = formatDateForInput(r.date) || r.date;
+      const balText = formatMoney(r.computedBalance !== undefined ? r.computedBalance : r.balance);
       return `
         <div class="tx-item">
           <div class="tx-left">
@@ -571,14 +610,15 @@
               <div class="tx-title">${escapeHtml(r.item)}</div>
               <div class="tx-sub">
                 <span class="acc-tag">${escapeHtml(acc)}</span>
-                <span>${escapeHtml(r.date)}</span>
+                <span>${escapeHtml(cleanDate)}</span>
+                <span>• คงเหลือ ${balText}</span>
               </div>
             </div>
           </div>
           <div class="tx-right">
             <div class="tx-amt ${isInc ? 'income' : 'expense'}">${isInc ? '+' : '-'}${formatMoney(amt)}</div>
             <div class="tx-actions">
-              <button class="act-btn" ${isBusy ? 'disabled' : ''} onclick="openEditModal(${Number(r.rowIndex)}, '${escapeJs(r.date)}', '${escapeJs(r.type)}', '${escapeJs(acc)}', '${escapeJs(r.item)}', ${amt})">แก้ไข</button>
+              <button class="act-btn" ${isBusy ? 'disabled' : ''} onclick="openEditModal(${Number(r.rowIndex)}, '${escapeJs(cleanDate)}', '${escapeJs(r.type)}', '${escapeJs(acc)}', '${escapeJs(r.item)}', ${amt})">แก้ไข</button>
               <button class="act-btn act-del" ${isBusy ? 'disabled' : ''} onclick="deleteRecord(${Number(r.rowIndex)}, '${escapeJs(r.item)}')">ลบ</button>
             </div>
           </div>
@@ -594,7 +634,6 @@
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
-    // รองรับทั้งกรณีที่ Apps Script คืน JSON หรือ opaque response
     if (res.type === 'opaque') return { status: 'success' };
     const json = await res.json();
     if (json.status === 'error') throw new Error(json.message || 'Server error');
@@ -624,7 +663,7 @@
       await postAction(payload);
       document.getElementById('itemInput').value = '';
       document.getElementById('amountInput').value = '';
-      await loadData();
+      await loadData(false);
       showStatus('บันทึกรายการเรียบร้อยแล้ว');
     } catch (err) {
       showStatus('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', true);
@@ -637,7 +676,7 @@
 
   function openEditModal(rowIndex, date, type, account, item, amount) {
     document.getElementById('editRowIndex').value = rowIndex;
-    document.getElementById('editDate').value = date;
+    document.getElementById('editDate').value = formatDateForInput(date);
     document.getElementById('editType').value = type;
 
     const editAccSel = document.getElementById('editAccount');
@@ -676,7 +715,7 @@
     try {
       await postAction(payload);
       closeEditModal();
-      await loadData();
+      await loadData(false);
     } catch (err) {
       alert('แก้ไขไม่สำเร็จ: ' + err.message);
     } finally {
@@ -695,7 +734,7 @@
 
     try {
       await postAction({ action: 'delete', rowIndex: Number(rowIndex) });
-      await loadData();
+      await loadData(false);
     } catch (err) {
       alert('ลบรายการไม่สำเร็จ: ' + err.message);
     } finally {
@@ -709,7 +748,13 @@
   }
 
   initSettings();
-  loadData();
+  const cachedRaw = localStorage.getItem(CACHE_RECORDS_KEY);
+  if (cachedRaw) {
+    try {
+      applyRecordsToUI(JSON.parse(cachedRaw));
+    } catch (_) {}
+  }
+  loadData(false);
 </script>
 </body>
 </html>
