@@ -32,9 +32,8 @@
     body { margin: 0; background: #edeae4; color: var(--text); display: flex; justify-content: center; min-height: 100vh; }
     .app-shell { width: 100%; max-width: 480px; background: var(--bg); min-height: 100vh; position: relative; padding-bottom: 86px; }
 
-    .page { display: none; animation: fadeIn 0.16s ease; }
+    .page { display: none; }
     .page.active { display: block; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
 
     .top-bar { padding: 26px 22px 12px; display: flex; justify-content: space-between; align-items: center; }
     .brand { font-size: 16px; font-weight: 600; color: var(--text); }
@@ -64,8 +63,9 @@
     .acc-scroll::-webkit-scrollbar { display: none; }
     .acc-mini-card {
       background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-      padding: 12px 16px; min-width: 130px; flex-shrink: 0;
+      padding: 12px 16px; min-width: 132px; flex-shrink: 0; cursor: pointer; text-align: left;
     }
+    .acc-mini-card.selected { border-color: var(--accent); background: var(--accent-soft); }
     .acc-mini-name { font-size: 12px; color: var(--muted); white-space: nowrap; }
     .acc-mini-bal { font-size: 15px; font-weight: 600; color: var(--text); margin-top: 3px; }
 
@@ -126,6 +126,13 @@
     .pill { padding: 6px 13px; border-radius: 20px; border: 1px solid var(--border); background: var(--card); font-size: 12px; color: var(--muted); cursor: pointer; font-weight: 500; white-space: nowrap; }
     .pill.active { background: var(--accent); color: white; border-color: var(--accent); }
 
+    .history-acc-summary {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 12px 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;
+      font-size: 13px;
+    }
+    .history-acc-summary strong { font-size: 15px; }
+
     .tx-item {
       background: var(--card); border-radius: 18px; padding: 14px 16px; margin-bottom: 10px;
       border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;
@@ -151,7 +158,7 @@
     .act-del { color: var(--expense); background: var(--expense-bg); border-color: transparent; }
 
     .bottom-nav {
-      position: fixed; bottom: 0; width: 100%; max-width: 480px; background: rgba(255, 255, 255, 0.92);
+      position: fixed; bottom: 0; width: 100%; max-width: 480px; background: rgba(255, 255, 255, 0.94);
       backdrop-filter: blur(12px); border-top: 1px solid var(--border);
       display: grid; grid-template-columns: repeat(3, 1fr); padding: 10px 0 14px; z-index: 50;
     }
@@ -186,7 +193,7 @@
 
     <div class="content">
       <div class="balance-card">
-        <div class="balance-title">ยอดเงินคงเหลือรวมทุกบัญชี</div>
+        <div class="balance-title" id="balanceCardLabel">ยอดเงินคงเหลือรวมทุกบัญชี</div>
         <div class="balance-val" id="totalBalance">฿0.00</div>
         <div class="summary-row">
           <div class="sum-box">
@@ -251,6 +258,7 @@
         <button class="pill" onclick="setFilter('รายรับ', this)">รายรับ</button>
         <button class="pill" onclick="setFilter('รายจ่าย', this)">รายจ่าย</button>
       </div>
+      <div class="history-acc-summary" id="historyAccSummary"></div>
       <div id="historyList"></div>
     </div>
   </div>
@@ -352,6 +360,7 @@
 
   let currentType = 'รายจ่าย';
   let currentFilter = 'all';
+  let selectedSummaryAccount = 'all';
   let allRecords = [];
   let isBusy = false;
 
@@ -370,7 +379,7 @@
   function saveAccounts(list) {
     localStorage.setItem('nubtang_accounts', JSON.stringify(list));
     renderAccountsUI();
-    renderAccountBalances();
+    renderSummaryCards();
   }
 
   function addAccount() {
@@ -388,6 +397,7 @@
     const list = getAccounts();
     if (list.length <= 1) return alert('ต้องมีบัญชีอย่างน้อย 1 บัญชี');
     if (!confirm(`ต้องการลบบัญชี "${name}" ออกจากรายการเลือกใช่หรือไม่?`)) return;
+    if (selectedSummaryAccount === name) selectedSummaryAccount = 'all';
     saveAccounts(list.filter(a => a !== name));
   }
 
@@ -414,8 +424,7 @@
     `).join('');
   }
 
-  function renderAccountBalances() {
-    const container = document.getElementById('accountSummaryScroll');
+  function getAccountTotalsMap() {
     const accounts = getAccounts();
     const balMap = {};
     accounts.forEach(a => balMap[a] = 0);
@@ -427,48 +436,72 @@
       if (r.type === 'รายรับ') balMap[acc] += amt;
       else balMap[acc] -= amt;
     });
-
-    container.innerHTML = Object.keys(balMap).map(acc => `
-      <div class="acc-mini-card">
-        <div class="acc-mini-name">${escapeHtml(acc)}</div>
-        <div class="acc-mini-bal">${formatMoney(balMap[acc])}</div>
-      </div>
-    `).join('');
+    return balMap;
   }
 
-  function computeRunningBalances(recordsNewestFirst) {
-    // recordsNewestFirst เรียงจากใหม่ไปเก่า (row ใหญ่ -> row เล็ก)
-    // คำนวณยอดคงเหลือสะสมจากรายการเก่าสุด (ท้ายอาเรย์) มายังรายการใหม่สุด (หัวอาเรย์)
-    const chrono = recordsNewestFirst.slice().reverse();
-    let running = 0;
-    const withBalChrono = chrono.map(r => {
-      const amt = Number(r.amount) || 0;
-      if (r.type === 'รายรับ') running += amt;
-      else running -= amt;
-      return Object.assign({}, r, { computedBalance: running });
-    });
-    return withBalChrono.reverse();
+  function selectSummaryAccount(accName) {
+    selectedSummaryAccount = (selectedSummaryAccount === accName) ? 'all' : accName;
+    if (selectedSummaryAccount !== 'all') {
+      document.getElementById('accountInput').value = selectedSummaryAccount;
+    }
+    renderSummaryCards();
   }
 
-  function applyRecordsToUI(records) {
-    allRecords = computeRunningBalances(
-      (records || []).filter(r => String(r.item || '').trim() !== '' && Number(r.amount) > 0)
-    );
+  function renderSummaryCards() {
+    const balMap = getAccountTotalsMap();
+    const scrollEl = document.getElementById('accountSummaryScroll');
+
+    let targetRecords = allRecords;
+    if (selectedSummaryAccount !== 'all') {
+      targetRecords = allRecords.filter(r => (r.account || 'ทั่วไป') === selectedSummaryAccount);
+      document.getElementById('balanceCardLabel').textContent = `ยอดคงเหลือบัญชี "${selectedSummaryAccount}"`;
+    } else {
+      document.getElementById('balanceCardLabel').textContent = 'ยอดเงินคงเหลือรวมทุกบัญชี';
+    }
 
     let sumInc = 0, sumExp = 0;
-    allRecords.forEach(r => {
+    targetRecords.forEach(r => {
       const amt = Number(r.amount) || 0;
       if (r.type === 'รายรับ') sumInc += amt;
       else sumExp += amt;
     });
 
-    const netBalance = sumInc - sumExp;
-    document.getElementById('totalBalance').textContent = formatMoney(netBalance);
+    document.getElementById('totalBalance').textContent = formatMoney(sumInc - sumExp);
     document.getElementById('totalIncome').textContent = '+' + formatMoney(sumInc);
     document.getElementById('totalExpense').textContent = '-' + formatMoney(sumExp);
 
+    scrollEl.innerHTML = Object.keys(balMap).map(acc => {
+      const activeClass = selectedSummaryAccount === acc ? 'selected' : '';
+      return `
+        <button type="button" class="acc-mini-card ${activeClass}" onclick="selectSummaryAccount('${escapeJs(acc)}')">
+          <div class="acc-mini-name">${escapeHtml(acc)}</div>
+          <div class="acc-mini-bal">${formatMoney(balMap[acc])}</div>
+        </button>
+      `;
+    }).join('');
+  }
+
+  // คำนวณยอดคงเหลือสะสมแบบแยกตามบัญชี (จากเก่าสุดไปใหม่สุด)
+  function computePerAccountBalances(recordsNewestFirst) {
+    const chrono = recordsNewestFirst.slice().reverse();
+    const runningByAcc = {};
+    const withBalChrono = chrono.map(r => {
+      const acc = r.account || 'ทั่วไป';
+      if (runningByAcc[acc] === undefined) runningByAcc[acc] = 0;
+      const amt = Number(r.amount) || 0;
+      if (r.type === 'รายรับ') runningByAcc[acc] += amt;
+      else runningByAcc[acc] -= amt;
+      return Object.assign({}, r, { accountBalance: runningByAcc[acc] });
+    });
+    return withBalChrono.reverse();
+  }
+
+  function applyRecordsToUI(records) {
+    allRecords = computePerAccountBalances(
+      (records || []).filter(r => String(r.item || '').trim() !== '' && Number(r.amount) > 0)
+    );
     renderAccountsUI();
-    renderAccountBalances();
+    renderSummaryCards();
     renderHistory();
   }
 
@@ -554,7 +587,7 @@
     if (msg) {
       setTimeout(() => {
         if (el.textContent === msg) el.textContent = '';
-      }, 2500);
+      }, 2200);
     }
   }
 
@@ -581,6 +614,7 @@
 
   function renderHistory() {
     const listEl = document.getElementById('historyList');
+    const summaryEl = document.getElementById('historyAccSummary');
     const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
     const selectedAccount = document.getElementById('accountFilterSelect').value;
 
@@ -590,6 +624,14 @@
       const matchAcc = selectedAccount === 'all' || (r.account || 'ทั่วไป') === selectedAccount;
       return matchType && matchText && matchAcc;
     });
+
+    const balMap = getAccountTotalsMap();
+    if (selectedAccount === 'all') {
+      const totalAll = Object.values(balMap).reduce((a, b) => a + b, 0);
+      summaryEl.innerHTML = `<span>ยอดคงเหลือรวมทุกบัญชี</span><strong>${formatMoney(totalAll)}</strong>`;
+    } else {
+      summaryEl.innerHTML = `<span>คงเหลือบัญชี "${escapeHtml(selectedAccount)}"</span><strong>${formatMoney(balMap[selectedAccount] || 0)}</strong>`;
+    }
 
     if (filtered.length === 0) {
       listEl.innerHTML = '<div style="text-align:center; color:var(--muted); padding:30px 0; font-size:14px;">ไม่พบรายการบันทึก</div>';
@@ -601,7 +643,7 @@
       const acc = r.account || 'ทั่วไป';
       const amt = Number(r.amount) || 0;
       const cleanDate = formatDateForInput(r.date) || r.date;
-      const balText = formatMoney(r.computedBalance !== undefined ? r.computedBalance : r.balance);
+      const accBalText = formatMoney(r.accountBalance !== undefined ? r.accountBalance : r.balance);
       return `
         <div class="tx-item">
           <div class="tx-left">
@@ -611,7 +653,7 @@
               <div class="tx-sub">
                 <span class="acc-tag">${escapeHtml(acc)}</span>
                 <span>${escapeHtml(cleanDate)}</span>
-                <span>• คงเหลือ ${balText}</span>
+                <span>• เหลือในบัญชี ${accBalText}</span>
               </div>
             </div>
           </div>
@@ -663,8 +705,8 @@
       await postAction(payload);
       document.getElementById('itemInput').value = '';
       document.getElementById('amountInput').value = '';
+      showStatus('บันทึกเรียบร้อยแล้ว');
       await loadData(false);
-      showStatus('บันทึกรายการเรียบร้อยแล้ว');
     } catch (err) {
       showStatus('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', true);
     } finally {
