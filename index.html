@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f7f5f2">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="นับตัง">
+  <title>นับตัง - บันทึกรายรับรายจ่าย</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f7f5f2;
+      --card: #ffffff;
+      --accent: #2c2825;
+      --accent-soft: #efece6;
+      --income: #3d7a68;
+      --income-bg: #eef5f2;
+      --expense: #c25949;
+      --expense-bg: #fbf0ee;
+      --text: #2c2825;
+      --muted: #8c857e;
+      --border: #ebe6df;
+    }
+    * { box-sizing: border-box; font-family: 'Prompt', -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; background: #edeae4; color: var(--text); display: flex; justify-content: center; min-height: 100vh; }
+    .app-shell { width: 100%; max-width: 480px; background: var(--bg); min-height: 100vh; position: relative; padding-bottom: 86px; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .top-bar { padding: 26px 22px 12px; display: flex; justify-content: space-between; align-items: center; }
+    .brand { font-size: 16px; font-weight: 600; color: var(--text); }
+    .sheet-shortcut {
+      background: var(--card); color: var(--text); border: 1px solid var(--border); padding: 6px 13px;
+      border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; text-decoration: none;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+
+    .content { padding: 8px 20px 20px; }
+    .balance-card {
+      background: var(--card); border-radius: 24px; padding: 22px;
+      border: 1px solid var(--border); margin-bottom: 14px;
+      box-shadow: 0 2px 12px rgba(44, 40, 37, 0.03);
+    }
+    .balance-title { font-size: 13px; color: var(--muted); }
+    .balance-val { font-size: 34px; font-weight: 600; color: var(--text); letter-spacing: -0.8px; margin: 2px 0 16px; }
+    .summary-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-top: 1px solid var(--border); padding-top: 14px; }
+    .sum-box { background: var(--bg); padding: 10px 14px; border-radius: 14px; }
+    .sum-label { font-size: 11px; color: var(--muted); }
+    .sum-num { font-size: 15px; font-weight: 600; margin-top: 2px; }
+
+    .acc-scroll {
+      display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 14px;
+      scrollbar-width: none;
+    }
+    .acc-scroll::-webkit-scrollbar { display: none; }
+    .acc-mini-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 12px 16px; min-width: 132px; flex-shrink: 0; cursor: pointer; text-align: left;
+    }
+    .acc-mini-card.selected { border-color: var(--accent); background: var(--accent-soft); }
+    .acc-mini-name { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .acc-mini-bal { font-size: 15px; font-weight: 600; color: var(--text); margin-top: 3px; }
+
+    .card {
+      background: var(--card); border-radius: 24px; padding: 20px;
+      border: 1px solid var(--border); margin-bottom: 16px;
+      box-shadow: 0 2px 12px rgba(44, 40, 37, 0.03);
+    }
+    .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--bg); padding: 5px; border-radius: 14px; margin-bottom: 16px; }
+    .type-btn { padding: 10px; border: none; border-radius: 10px; background: transparent; font-weight: 500; font-size: 14px; color: var(--muted); cursor: pointer; }
+    .type-btn.active.expense { background: var(--card); color: var(--expense); font-weight: 600; box-shadow: 0 2px 6px rgba(44,40,37,0.05); }
+    .type-btn.active.income { background: var(--card); color: var(--income); font-weight: 600; box-shadow: 0 2px 6px rgba(44,40,37,0.05); }
+
+    .form-group { margin-bottom: 13px; }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
+    input, select {
+      width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 12px;
+      font-size: 15px; outline: none; background: var(--bg); color: var(--text);
+    }
+    input:focus, select:focus { border-color: var(--accent); background: var(--card); }
+
+    .btn-primary {
+      width: 100%; padding: 14px; border: none; border-radius: 14px;
+      background: var(--accent); color: #ffffff;
+      font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 4px;
+    }
+    .btn-primary:disabled { opacity: 0.5; }
+    .btn-outline {
+      width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 14px;
+      background: var(--bg); color: var(--text); font-size: 14px; font-weight: 500;
+      cursor: pointer; text-align: center; display: block; text-decoration: none;
+    }
+
+    .status-msg {
+      text-align: center; font-size: 13px; color: var(--income); margin-top: 10px;
+      min-height: 18px; font-weight: 500;
+    }
+
+    .acc-add-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .acc-add-btn {
+      padding: 0 16px; border: none; border-radius: 12px; background: var(--accent);
+      color: white; font-size: 14px; font-weight: 500; cursor: pointer; flex-shrink: 0;
+    }
+    .acc-chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .acc-chip {
+      display: inline-flex; align-items: center; gap: 6px; background: var(--bg);
+      border: 1px solid var(--border); padding: 6px 12px; border-radius: 20px; font-size: 13px;
+    }
+    .acc-chip-del {
+      background: none; border: none; color: var(--muted); font-size: 14px;
+      cursor: pointer; padding: 0 2px; line-height: 1;
+    }
+
+    .page-header { padding: 26px 22px 10px; display: flex; justify-content: space-between; align-items: center; }
+    .page-title { font-size: 20px; font-weight: 600; color: var(--text); margin: 0; }
+    .filter-bar { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 12px; scrollbar-width: none; }
+    .filter-bar::-webkit-scrollbar { display: none; }
+    .pill { padding: 6px 13px; border-radius: 20px; border: 1px solid var(--border); background: var(--card); font-size: 12px; color: var(--muted); cursor: pointer; font-weight: 500; white-space: nowrap; }
+    .pill.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+    .history-acc-summary {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 12px 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;
+      font-size: 13px;
+    }
+    .history-acc-summary strong { font-size: 15px; }
+
+    .tx-item {
+      background: var(--card); border-radius: 18px; padding: 14px 16px; margin-bottom: 10px;
+      border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;
+    }
+    .tx-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .tx-badge {
+      width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center;
+      justify-content: center; font-weight: 600; font-size: 15px; flex-shrink: 0;
+    }
+    .tx-badge.income { background: var(--income-bg); color: var(--income); }
+    .tx-badge.expense { background: var(--expense-bg); color: var(--expense); }
+    .tx-meta { min-width: 0; }
+    .tx-title { font-weight: 500; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-sub { font-size: 11px; color: var(--muted); margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .acc-tag { background: var(--accent-soft); color: var(--text); padding: 1px 7px; border-radius: 6px; font-weight: 500; }
+    .tx-right { text-align: right; flex-shrink: 0; margin-left: 8px; }
+    .tx-amt { font-weight: 600; font-size: 15px; }
+    .tx-amt.income { color: var(--income); }
+    .tx-amt.expense { color: var(--expense); }
+    .tx-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
+    .act-btn { border: 1px solid var(--border); background: var(--bg); color: var(--text); padding: 3px 9px; border-radius: 8px; font-size: 11px; cursor: pointer; }
+    .act-btn:disabled { opacity: 0.4; }
+    .act-del { color: var(--expense); background: var(--expense-bg); border-color: transparent; }
+
+    .bottom-nav {
+      position: fixed; bottom: 0; width: 100%; max-width: 480px; background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(12px); border-top: 1px solid var(--border);
+      display: grid; grid-template-columns: repeat(3, 1fr); padding: 10px 0 14px; z-index: 50;
+    }
+    .nav-btn {
+      background: none; border: none; display: flex; flex-direction: column; align-items: center;
+      gap: 4px; color: var(--muted); font-size: 11px; font-weight: 400; cursor: pointer;
+    }
+    .nav-btn.active { color: var(--text); font-weight: 600; }
+    .nav-dot { width: 4px; height: 4px; border-radius: 50%; background: transparent; margin-top: 1px; }
+    .nav-btn.active .nav-dot { background: var(--accent); }
+
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(44, 40, 37, 0.4); display: none;
+      align-items: center; justify-content: center; padding: 20px; z-index: 100;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-box { background: var(--card); width: 100%; max-width: 400px; border-radius: 24px; padding: 22px; border: 1px solid var(--border); }
+    .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+    .btn-cancel { padding: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 14px; font-weight: 500; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- หน้า 1: บันทึกรายการ -->
+  <div id="pageRecord" class="page active">
+    <div class="top-bar">
+      <div class="brand">นับตัง</div>
+      <a id="topSheetLink" href="#" target="_blank" class="sheet-shortcut">เปิดชีต ↗</a>
+    </div>
+
+    <div class="content">
+      <div class="balance-card">
+        <div class="balance-title" id="balanceCardLabel">ยอดเงินคงเหลือรวมทุกบัญชี</div>
+        <div class="balance-val" id="totalBalance">฿0.00</div>
+        <div class="summary-row">
+          <div class="sum-box">
+            <div class="sum-label">รายรับรวม</div>
+            <div class="sum-num" id="totalIncome" style="color:var(--income);">+฿0.00</div>
+          </div>
+          <div class="sum-box">
+            <div class="sum-label">รายจ่ายรวม</div>
+            <div class="sum-num" id="totalExpense" style="color:var(--expense);">-฿0.00</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="acc-scroll" id="accountSummaryScroll"></div>
+
+      <div class="card">
+        <div class="type-toggle">
+          <button type="button" class="type-btn active expense" id="btnExpense" onclick="setType('รายจ่าย')">รายจ่าย</button>
+          <button type="button" class="type-btn income" id="btnIncome" onclick="setType('รายรับ')">รายรับ</button>
+        </div>
+        <form id="txForm">
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <div class="form-group">
+              <label>บัญชี / ธนาคาร</label>
+              <select id="accountInput" required></select>
+            </div>
+            <div class="form-group">
+              <label>วันที่</label>
+              <input type="date" id="dateInput" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>รายการ</label>
+            <input type="text" id="itemInput" placeholder="เช่น ค่าอาหาร, ค่ารถ, เงินเดือน" required>
+          </div>
+          <div class="form-group">
+            <label>จำนวนเงิน (บาท)</label>
+            <input type="number" id="amountInput" step="0.01" min="0.01" inputmode="decimal" placeholder="0.00" required>
+          </div>
+          <button type="submit" class="btn-primary" id="submitBtn">บันทึกรายการ</button>
+          <div class="status-msg" id="recordStatus"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- หน้า 2: ประวัติรายการ -->
+  <div id="pageHistory" class="page">
+    <div class="page-header">
+      <h2 class="page-title">ประวัติรายการ</h2>
+      <button onclick="loadData(true)" class="sheet-shortcut" id="refreshBtn">↻ รีเฟรช</button>
+    </div>
+    <div class="content">
+      <div class="form-group" style="display:grid; grid-template-columns: 1.4fr 1fr; gap:8px;">
+        <input type="text" id="searchInput" placeholder="ค้นหารายการ..." oninput="renderHistory()">
+        <select id="accountFilterSelect" onchange="renderHistory()">
+          <option value="all">ทุกบัญชี</option>
+        </select>
+      </div>
+      <div class="filter-bar">
+        <button class="pill active" onclick="setFilter('all', this)">ทั้งหมด</button>
+        <button class="pill" onclick="setFilter('รายรับ', this)">รายรับ</button>
+        <button class="pill" onclick="setFilter('รายจ่าย', this)">รายจ่าย</button>
+      </div>
+      <div class="history-acc-summary" id="historyAccSummary"></div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <!-- หน้า 3: ตั้งค่า -->
+  <div id="pageSettings" class="page">
+    <div class="page-header">
+      <h2 class="page-title">ตั้งค่า</h2>
+    </div>
+    <div class="content">
+      <div class="card">
+        <label style="margin-bottom:8px;">จัดการบัญชี / ธนาคาร</label>
+        <div class="acc-add-row">
+          <input type="text" id="newAccountInput" placeholder="ชื่อบัญชี เช่น กรุงไทย, เงินสด">
+          <button type="button" class="acc-add-btn" onclick="addAccount()">+ เพิ่ม</button>
+        </div>
+        <div class="acc-chip-list" id="accountChipList"></div>
+      </div>
+
+      <div class="card">
+        <div class="form-group">
+          <label>ลิงก์ไฟล์ Google Sheets</label>
+          <input type="url" id="sheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/...">
+        </div>
+        <div class="form-group">
+          <label>ลิงก์ Apps Script Web App URL</label>
+          <input type="url" id="apiUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+        </div>
+        <button type="button" class="btn-primary" onclick="saveSettings()">บันทึกการตั้งค่า</button>
+      </div>
+
+      <div class="card">
+        <label style="margin-bottom:8px;">จัดการไฟล์ข้อมูล</label>
+        <a id="settingsOpenSheetBtn" href="#" target="_blank" class="btn-outline">เปิดตาราง Google Sheets ↗</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- แถบเมนูด้านล่าง -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="navRecord" onclick="switchPage('Record')">
+      <span>บันทึก</span>
+      <span class="nav-dot"></span>
+    </button>
+    <button class="nav-btn" id="navHistory" onclick="switchPage('History')">
+      <span>ประวัติ</span>
+      <span class="nav-dot"></span>
+    </button>
+    <button class="nav-btn" id="navSettings" onclick="switchPage('Settings')">
+      <span>ตั้งค่า</span>
+      <span class="nav-dot"></span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- หน้าต่างแก้ไขรายการ -->
+<div class="modal-backdrop" id="editModal">
+  <div class="modal-box">
+    <h3 style="margin:0 0 14px; font-size:17px; font-weight:600;">แก้ไขรายการ</h3>
+    <input type="hidden" id="editRowIndex">
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+      <div class="form-group">
+        <label>ประเภท</label>
+        <select id="editType">
+          <option value="รายจ่าย">รายจ่าย</option>
+          <option value="รายรับ">รายรับ</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>บัญชี</label>
+        <select id="editAccount"></select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>วันที่</label>
+      <input type="date" id="editDate" required>
+    </div>
+    <div class="form-group">
+      <label>รายการ</label>
+      <input type="text" id="editItem" required>
+    </div>
+    <div class="form-group">
+      <label>จำนวนเงิน (บาท)</label>
+      <input type="number" id="editAmount" step="0.01" min="0.01" required>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" onclick="closeEditModal()">ยกเลิก</button>
+      <button type="button" class="btn-primary" style="margin-top:0;" id="saveEditBtn" onclick="submitEdit()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbz7GzoucUqxtVsqlAEg0ydduJ3fOip-rZwBd4-2bTEeOE2YRdSHPJfxNojL4ecNJe1u9w/exec';
+  const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1rrhwKB9QoYmjJS1tmBJMkijUp0rhRNvI6VfDTRd9X4c/edit';
+  const DEFAULT_ACCOUNTS = ['เงินสด', 'กรุงไทย', 'กสิกรไทย', 'ไทยพาณิชย์', 'TrueMoney'];
+  const CACHE_RECORDS_KEY = 'nubtang_records_cache_v1';
+
+  let currentType = 'รายจ่าย';
+  let currentFilter = 'all';
+  let selectedSummaryAccount = 'all';
+  let allRecords = [];
+  let isBusy = false;
+
+  document.getElementById('dateInput').valueAsDate = new Date();
+
+  function getApiUrl() {
+    return localStorage.getItem('nubtang_api_url') || DEFAULT_API_URL;
+  }
+  function getSheetUrl() {
+    return localStorage.getItem('nubtang_sheet_url') || DEFAULT_SHEET_URL;
+  }
+  function getAccounts() {
+    const saved = localStorage.getItem('nubtang_accounts');
+    return saved ? JSON.parse(saved) : DEFAULT_ACCOUNTS;
+  }
+  function saveAccounts(list) {
+    localStorage.setItem('nubtang_accounts', JSON.stringify(list));
+    renderAccountsUI();
+    renderSummaryCards();
+  }
+
+  function addAccount() {
+    const input = document.getElementById('newAccountInput');
+    const name = input.value.trim();
+    if (!name) return;
+    const list = getAccounts();
+    if (list.includes(name)) return alert('มีชื่อบัญชีนี้อยู่แล้ว');
+    list.push(name);
+    saveAccounts(list);
+    input.value = '';
+  }
+
+  function removeAccount(name) {
+    const list = getAccounts();
+    if (list.length <= 1) return alert('ต้องมีบัญชีอย่างน้อย 1 บัญชี');
+    if (!confirm(`ต้องการลบบัญชี "${name}" ออกจากรายการเลือกใช่หรือไม่?`)) return;
+    if (selectedSummaryAccount === name) selectedSummaryAccount = 'all';
+    saveAccounts(list.filter(a => a !== name));
+  }
+
+  function buildAccountOptionsHtml(currentAcc) {
+    const list = getAccounts();
+    const merged = currentAcc && !list.includes(currentAcc) ? [currentAcc, ...list] : list;
+    return merged.map(a => `<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join('');
+  }
+
+  function renderAccountsUI() {
+    const list = getAccounts();
+    const accInput = document.getElementById('accountInput');
+    const prevVal = accInput.value;
+    accInput.innerHTML = list.map(a => `<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join('');
+    if (list.includes(prevVal)) accInput.value = prevVal;
+
+    const filterSel = document.getElementById('accountFilterSelect');
+    const prevFilter = filterSel.value;
+    const allUsedAccounts = Array.from(new Set([...list, ...allRecords.map(r => r.account || 'ทั่วไป')]));
+    filterSel.innerHTML = `<option value="all">ทุกบัญชี</option>` + allUsedAccounts.map(a => `<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join('');
+    if (allUsedAccounts.includes(prevFilter)) filterSel.value = prevFilter;
+
+    document.getElementById('accountChipList').innerHTML = list.map(a => `
+      <span class="acc-chip">
+        <span>${escapeHtml(a)}</span>
+        <button type="button" class="acc-chip-del" onclick="removeAccount('${escapeJs(a)}')">×</button>
+      </span>
+    `).join('');
+  }
+
+  function getAccountTotalsMap() {
+    const accounts = getAccounts();
+    const balMap = {};
+    accounts.forEach(a => balMap[a] = 0);
+
+    allRecords.forEach(r => {
+      const acc = r.account || 'ทั่วไป';
+      if (balMap[acc] === undefined) balMap[acc] = 0;
+      const amt = Number(r.amount) || 0;
+      if (r.type === 'รายรับ') balMap[acc] += amt;
+      else balMap[acc] -= amt;
+    });
+    return balMap;
+  }
+
+  function selectSummaryAccount(accName) {
+    selectedSummaryAccount = (selectedSummaryAccount === accName) ? 'all' : accName;
+    if (selectedSummaryAccount !== 'all') {
+      document.getElementById('accountInput').value = selectedSummaryAccount;
+    }
+    renderSummaryCards();
+  }
+
+  function renderSummaryCards() {
+    const balMap = getAccountTotalsMap();
+    const scrollEl = document.getElementById('accountSummaryScroll');
+
+    let targetRecords = allRecords;
+    if (selectedSummaryAccount !== 'all') {
+      targetRecords = allRecords.filter(r => (r.account || 'ทั่วไป') === selectedSummaryAccount);
+      document.getElementById('balanceCardLabel').textContent = `ยอดคงเหลือบัญชี "${selectedSummaryAccount}"`;
+    } else {
+      document.getElementById('balanceCardLabel').textContent = 'ยอดเงินคงเหลือรวมทุกบัญชี';
+    }
+
+    let sumInc = 0, sumExp = 0;
+    targetRecords.forEach(r => {
+      const amt = Number(r.amount) || 0;
+      if (r.type === 'รายรับ') sumInc += amt;
+      else sumExp += amt;
+    });
+
+    document.getElementById('totalBalance').textContent = formatMoney(sumInc - sumExp);
+    document.getElementById('totalIncome').textContent = '+' + formatMoney(sumInc);
+    document.getElementById('totalExpense').textContent = '-' + formatMoney(sumExp);
+
+    scrollEl.innerHTML = Object.keys(balMap).map(acc => {
+      const activeClass = selectedSummaryAccount === acc ? 'selected' : '';
+      return `
+        <button type="button" class="acc-mini-card ${activeClass}" onclick="selectSummaryAccount('${escapeJs(acc)}')">
+          <div class="acc-mini-name">${escapeHtml(acc)}</div>
+          <div class="acc-mini-bal">${formatMoney(balMap[acc])}</div>
+        </button>
+      `;
+    }).join('');
+  }
+
+  function computePerAccountBalances(recordsNewestFirst) {
+    const chrono = recordsNewestFirst.slice().reverse();
+    const runningByAcc = {};
+    const withBalChrono = chrono.map(r => {
+      const acc = r.account || 'ทั่วไป';
+      if (runningByAcc[acc] === undefined) runningByAcc[acc] = 0;
+      const amt = Number(r.amount) || 0;
+      if (r.type === 'รายรับ') runningByAcc[acc] += amt;
+      else runningByAcc[acc] -= amt;
+      return Object.assign({}, r, { accountBalance: runningByAcc[acc] });
+    });
+    return withBalChrono.reverse();
+  }
+
+  function applyRecordsToUI(records) {
+    allRecords = computePerAccountBalances(
+      (records || []).filter(r => String(r.item || '').trim() !== '' && Number(r.amount) > 0)
+    );
+    localStorage.setItem(CACHE_RECORDS_KEY, JSON.stringify(allRecords));
+    renderAccountsUI();
+    renderSummaryCards();
+    renderHistory();
+  }
+
+  function initSettings() {
+    const sheetUrl = getSheetUrl();
+    const apiUrl = getApiUrl();
+    document.getElementById('sheetUrlInput').value = sheetUrl;
+    document.getElementById('apiUrlInput').value = apiUrl;
+    document.getElementById('topSheetLink').href = sheetUrl;
+    document.getElementById('settingsOpenSheetBtn').href = sheetUrl;
+    renderAccountsUI();
+  }
+
+  function saveSettings() {
+    const sheetUrl = document.getElementById('sheetUrlInput').value.trim();
+    const apiUrl = document.getElementById('apiUrlInput').value.trim();
+    if (sheetUrl) localStorage.setItem('nubtang_sheet_url', sheetUrl);
+    else localStorage.removeItem('nubtang_sheet_url');
+    if (apiUrl) localStorage.setItem('nubtang_api_url', apiUrl);
+    else localStorage.removeItem('nubtang_api_url');
+    initSettings();
+    alert('บันทึกการตั้งค่าเรียบร้อยแล้ว');
+    loadData(true);
+  }
+
+  function switchPage(pageName) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('page' + pageName).classList.add('active');
+    document.getElementById('nav' + pageName).classList.add('active');
+    if (pageName === 'History') renderHistory();
+  }
+
+  function setType(type) {
+    currentType = type;
+    document.getElementById('btnExpense').classList.toggle('active', type === 'รายจ่าย');
+    document.getElementById('btnIncome').classList.toggle('active', type === 'รายรับ');
+  }
+
+  function setFilter(filter, btnEl) {
+    currentFilter = filter;
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    btnEl.classList.add('active');
+    renderHistory();
+  }
+
+  function formatMoney(num) {
+    const safe = Number(num);
+    return '฿' + (isNaN(safe) ? 0 : safe).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function formatDateForInput(dStr) {
+    const s = String(dStr || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+    return '';
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  function escapeAttr(str) {
+    return escapeHtml(str).replace(/'/g, '&#39;');
+  }
+  function escapeJs(str) {
+    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ');
+  }
+
+  function showStatus(msg, isError = false) {
+    const el = document.getElementById('recordStatus');
+    el.style.color = isError ? 'var(--expense)' : 'var(--income)';
+    el.textContent = msg;
+    if (msg) {
+      setTimeout(() => {
+        if (el.textContent === msg) el.textContent = '';
+      }, 2200);
+    }
+  }
+
+  async function loadData(showLoadingText = false) {
+    const listEl = document.getElementById('historyList');
+    if (showLoadingText || !allRecords.length) {
+      listEl.innerHTML = '<div style="text-align:center; color:var(--muted); padding:30px 0; font-size:14px;">กำลังโหลดข้อมูล...</div>';
+    }
+    try {
+      const fetchUrl = getApiUrl() + '?t=' + Date.now();
+      const res = await fetch(fetchUrl, { redirect: 'follow', cache: 'no-store' });
+      const data = await res.json();
+      if (data.status === 'error') throw new Error(data.message || 'API error');
+      applyRecordsToUI(data.records || []);
+    } catch (err) {
+      if (!allRecords.length) {
+        listEl.innerHTML = '<div style="text-align:center; color:var(--expense); padding:30px 0; font-size:14px;">โหลดข้อมูลไม่สำเร็จ กดรีเฟรชอีกครั้ง</div>';
+      }
+    }
+  }
+
+  function renderHistory() {
+    const listEl = document.getElementById('historyList');
+    const summaryEl = document.getElementById('historyAccSummary');
+    const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+    const selectedAccount = document.getElementById('accountFilterSelect').value;
+
+    const filtered = allRecords.filter(r => {
+      const matchType = currentFilter === 'all' || r.type === currentFilter;
+      const matchText = String(r.item).toLowerCase().includes(keyword);
+      const matchAcc = selectedAccount === 'all' || (r.account || 'ทั่วไป') === selectedAccount;
+      return matchType && matchText && matchAcc;
+    });
+
+    const balMap = getAccountTotalsMap();
+    if (selectedAccount === 'all') {
+      const totalAll = Object.values(balMap).reduce((a, b) => a + b, 0);
+      summaryEl.innerHTML = `<span>ยอดคงเหลือรวมทุกบัญชี</span><strong>${formatMoney(totalAll)}</strong>`;
+    } else {
+      summaryEl.innerHTML = `<span>คงเหลือบัญชี "${escapeHtml(selectedAccount)}"</span><strong>${formatMoney(balMap[selectedAccount] || 0)}</strong>`;
+    }
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center; color:var(--muted); padding:30px 0; font-size:14px;">ไม่พบรายการบันทึก</div>';
+      return;
+    }
+
+    listEl.innerHTML = filtered.map(r => {
+      const isInc = r.type === 'รายรับ';
+      const acc = r.account || 'ทั่วไป';
+      const amt = Number(r.amount) || 0;
+      const cleanDate = formatDateForInput(r.date) || r.date;
+      const accBalText = formatMoney(r.accountBalance !== undefined ? r.accountBalance : r.balance);
+      return `
+        <div class="tx-item">
+          <div class="tx-left">
+            <div class="tx-badge ${isInc ? 'income' : 'expense'}">${isInc ? '+' : '-'}</div>
+            <div class="tx-meta">
+              <div class="tx-title">${escapeHtml(r.item)}</div>
+              <div class="tx-sub">
+                <span class="acc-tag">${escapeHtml(acc)}</span>
+                <span>${escapeHtml(cleanDate)}</span>
+                <span>• เหลือในบัญชี ${accBalText}</span>
+              </div>
+            </div>
+          </div>
+          <div class="tx-right">
+            <div class="tx-amt ${isInc ? 'income' : 'expense'}">${isInc ? '+' : '-'}${formatMoney(amt)}</div>
+            <div class="tx-actions">
+              <button class="act-btn" ${isBusy ? 'disabled' : ''} onclick="openEditModal(${Number(r.rowIndex)}, '${escapeJs(cleanDate)}', '${escapeJs(r.type)}', '${escapeJs(acc)}', '${escapeJs(r.item)}', ${amt})">แก้ไข</button>
+              <button class="act-btn act-del" ${isBusy ? 'disabled' : ''} onclick="deleteRecord(${Number(r.rowIndex)}, '${escapeJs(r.item)}')">ลบ</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function postAction(payload) {
+    const res = await fetch(getApiUrl(), {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    if (res.type === 'opaque') return { status: 'success' };
+    const json = await res.json();
+    if (json.status === 'error') throw new Error(json.message || 'Server error');
+    return json;
+  }
+
+  document.getElementById('txForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (isBusy) return;
+    isBusy = true;
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'กำลังบันทึก...';
+    showStatus('');
+
+    const payload = {
+      action: 'add',
+      account: document.getElementById('accountInput').value,
+      date: document.getElementById('dateInput').value,
+      type: currentType,
+      item: document.getElementById('itemInput').value.trim(),
+      amount: parseFloat(document.getElementById('amountInput').value)
+    };
+
+    try {
+      await postAction(payload);
+      document.getElementById('itemInput').value = '';
+      document.getElementById('amountInput').value = '';
+      showStatus('บันทึกเรียบร้อยแล้ว');
+      await loadData(false);
+    } catch (err) {
+      showStatus('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', true);
+    } finally {
+      isBusy = false;
+      btn.disabled = false;
+      btn.textContent = 'บันทึกรายการ';
+    }
+  });
+
+  function openEditModal(rowIndex, date, type, account, item, amount) {
+    document.getElementById('editRowIndex').value = rowIndex;
+    document.getElementById('editDate').value = formatDateForInput(date);
+    document.getElementById('editType').value = type;
+
+    const editAccSel = document.getElementById('editAccount');
+    editAccSel.innerHTML = buildAccountOptionsHtml(account);
+    editAccSel.value = account;
+
+    document.getElementById('editItem').value = item;
+    document.getElementById('editAmount').value = amount;
+    document.getElementById('editModal').classList.add('open');
+  }
+
+  function closeEditModal() {
+    document.getElementById('editModal').classList.remove('open');
+  }
+
+  async function submitEdit() {
+    if (isBusy) return;
+    isBusy = true;
+
+    const btn = document.getElementById('saveEditBtn');
+    btn.disabled = true;
+    btn.textContent = 'กำลังบันทึก...';
+
+    const rowIndex = Number(document.getElementById('editRowIndex').value);
+    const selectedAcc = document.getElementById('editAccount').value;
+    const payload = {
+      action: 'edit',
+      rowIndex: rowIndex,
+      account: selectedAcc,
+      date: document.getElementById('editDate').value,
+      type: document.getElementById('editType').value,
+      item: document.getElementById('editItem').value.trim(),
+      amount: parseFloat(document.getElementById('editAmount').value)
+    };
+
+    try {
+      await postAction(payload);
+      // อัปเดตในรายการหน้าจอทันทีเพื่อให้เห็นบัญชีที่เลือกเปลี่ยนแน่นอน
+      const updated = allRecords.map(r => Number(r.rowIndex) === rowIndex
+        ? Object.assign({}, r, {
+            account: selectedAcc,
+            date: payload.date,
+            type: payload.type,
+            item: payload.item,
+            amount: payload.amount
+          })
+        : r
+      );
+      applyRecordsToUI(updated);
+      closeEditModal();
+      await loadData(false);
+    } catch (err) {
+      alert('แก้ไขไม่สำเร็จ: ' + err.message);
+    } finally {
+      isBusy = false;
+      btn.disabled = false;
+      btn.textContent = 'บันทึก';
+    }
+  }
+
+  async function deleteRecord(rowIndex, itemName) {
+    if (isBusy) return;
+    if (!confirm(`ต้องการลบรายการ "${itemName}" ใช่หรือไม่?`)) return;
+
+    isBusy = true;
+    renderHistory();
+
+    try {
+      await postAction({ action: 'delete', rowIndex: Number(rowIndex) });
+      await loadData(false);
+    } catch (err) {
+      alert('ลบรายการไม่สำเร็จ: ' + err.message);
+    } finally {
+      isBusy = false;
+      renderHistory();
+    }
+  }
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+
+  initSettings();
+  const cachedRaw = localStorage.getItem(CACHE_RECORDS_KEY);
+  if (cachedRaw) {
+    try {
+      applyRecordsToUI(JSON.parse(cachedRaw));
+    } catch (_) {}
+  }
+  loadData(false);
+</script>
+</body>
+</html>
